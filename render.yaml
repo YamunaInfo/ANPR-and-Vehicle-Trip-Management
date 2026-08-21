@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: gatesense-anpr
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    region: oregon
+    envVars:
+      - key: PORT
+        value: 10000
+      - key: ENVIRONMENT
+        value: production
