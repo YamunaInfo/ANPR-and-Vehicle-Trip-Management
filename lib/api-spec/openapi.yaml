@@ -1,0 +1,684 @@
+openapi: 3.1.0
+info:
+  # Do not change the title, if the title changes, the import paths will be broken
+  title: Api
+  version: 0.1.0
+  description: GateSense operations API
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+  - name: dashboard
+  - name: events
+  - name: trips
+  - name: vehicles
+  - name: drivers
+  - name: alerts
+  - name: review
+  - name: reports
+  - name: cameras
+  - name: auth
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+  /auth/login:
+    post:
+      operationId: login
+      tags: [auth]
+      summary: Sign in to the operations console
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginInput"
+      responses:
+        "200":
+          description: Signed in user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Session"
+  /me:
+    get:
+      operationId: getMe
+      tags: [auth]
+      summary: Get current operator
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Operator"
+  /dashboard/summary:
+    get:
+      operationId: getDashboardSummary
+      tags: [dashboard]
+      summary: Get live dashboard KPIs
+      responses:
+        "200":
+          description: Dashboard KPIs
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardSummary"
+  /dashboard/activity:
+    get:
+      operationId: getDashboardActivity
+      tags: [dashboard]
+      summary: Get recent operator activity
+      responses:
+        "200":
+          description: Recent activity
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ActivityItem"
+  /events:
+    get:
+      operationId: getEvents
+      tags: [events]
+      summary: Get gate events
+      parameters:
+        - $ref: "#/components/parameters/Search"
+        - name: decision
+          in: query
+          schema:
+            type: string
+        - name: eventType
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Gate events
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/GateEvent"
+  /events/simulate:
+    post:
+      operationId: simulateTraffic
+      tags: [events]
+      summary: Generate one realistic gate event
+      responses:
+        "201":
+          description: Simulated event
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SimulationResult"
+  /detections:
+    post:
+      operationId: createDetection
+      tags: [events]
+      summary: Run plate fusion on uploaded frame metadata
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DetectionInput"
+      responses:
+        "201":
+          description: Fused plate prediction
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DetectionResult"
+  /trips:
+    get:
+      operationId: getTrips
+      tags: [trips]
+      summary: Get scheduled trips
+      responses:
+        "200":
+          description: Trips
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Trip"
+    post:
+      operationId: createTrip
+      tags: [trips]
+      summary: Schedule a trip
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TripInput"
+      responses:
+        "201":
+          description: Created trip
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Trip"
+  /trips/active:
+    get:
+      operationId: getActiveTrips
+      tags: [trips]
+      summary: Get vehicles currently inside
+      responses:
+        "200":
+          description: Active trips
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ActiveTrip"
+  /trips/{id}/status:
+    patch:
+      operationId: updateTripStatus
+      tags: [trips]
+      summary: Advance a trip lifecycle
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TripStatusInput"
+      responses:
+        "200":
+          description: Updated trip
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Trip"
+  /vehicles:
+    get:
+      operationId: getVehicles
+      tags: [vehicles]
+      summary: Get vehicle master records
+      responses:
+        "200":
+          description: Vehicles
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Vehicle"
+    post:
+      operationId: createVehicle
+      tags: [vehicles]
+      summary: Add a vehicle
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VehicleInput"
+      responses:
+        "201":
+          description: Created vehicle
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Vehicle"
+  /vehicles/{id}:
+    patch:
+      operationId: updateVehicle
+      tags: [vehicles]
+      summary: Update a vehicle
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VehicleInput"
+      responses:
+        "200":
+          description: Updated vehicle
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Vehicle"
+    delete:
+      operationId: deleteVehicle
+      tags: [vehicles]
+      summary: Delete a vehicle
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "204":
+          description: Vehicle deleted
+  /drivers:
+    get:
+      operationId: getDrivers
+      tags: [drivers]
+      summary: Get driver master records
+      responses:
+        "200":
+          description: Drivers
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Driver"
+    post:
+      operationId: createDriver
+      tags: [drivers]
+      summary: Add a driver
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DriverInput"
+      responses:
+        "201":
+          description: Created driver
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Driver"
+  /alerts:
+    get:
+      operationId: getAlerts
+      tags: [alerts]
+      summary: Get active and historical alerts
+      responses:
+        "200":
+          description: Alerts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Alert"
+  /alerts/{id}/read:
+    patch:
+      operationId: markAlertRead
+      tags: [alerts]
+      summary: Mark an alert as read
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: Updated alert
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Alert"
+  /review:
+    get:
+      operationId: getReviewQueue
+      tags: [review]
+      summary: Get detections needing human review
+      responses:
+        "200":
+          description: Review queue
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ReviewItem"
+  /review/{id}/correct:
+    post:
+      operationId: correctPlate
+      tags: [review]
+      summary: Correct a plate prediction
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CorrectionInput"
+      responses:
+        "200":
+          description: Corrected review item
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReviewItem"
+  /reports/overview:
+    get:
+      operationId: getReportsOverview
+      tags: [reports]
+      summary: Get operational report aggregates
+      responses:
+        "200":
+          description: Reports data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReportsOverview"
+  /cameras:
+    get:
+      operationId: getCameras
+      tags: [cameras]
+      summary: Get camera registry
+      responses:
+        "200":
+          description: Cameras
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Camera"
+    post:
+      operationId: createCamera
+      tags: [cameras]
+      summary: Register a camera
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CameraInput"
+      responses:
+        "201":
+          description: Created camera
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Camera"
+components:
+  parameters:
+    Id:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: number
+    Search:
+      name: search
+      in: query
+      schema:
+        type: string
+  schemas:
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+      required: [status]
+    LoginInput:
+      type: object
+      properties:
+        email: { type: string }
+        role: { type: string }
+      required: [email, role]
+    Operator:
+      type: object
+      properties:
+        id: { type: number }
+        name: { type: string }
+        email: { type: string }
+        role: { type: string }
+      required: [id, name, email, role]
+    Session:
+      type: object
+      properties:
+        token: { type: string }
+        operator:
+          $ref: "#/components/schemas/Operator"
+      required: [token, operator]
+    DashboardSummary:
+      type: object
+      properties:
+        vehiclesInside: { type: number }
+        entriesToday: { type: number }
+        exitsToday: { type: number }
+        activeAlerts: { type: number }
+        avgDwellMinutes: { type: number }
+        recognitionAccuracy: { type: number }
+        gatesOnline: { type: number }
+        totalGates: { type: number }
+      required: [vehiclesInside, entriesToday, exitsToday, activeAlerts, avgDwellMinutes, recognitionAccuracy, gatesOnline, totalGates]
+    ActivityItem:
+      type: object
+      properties:
+        id: { type: number }
+        kind: { type: string }
+        title: { type: string }
+        detail: { type: string }
+        time: { type: string }
+        tone: { type: string }
+      required: [id, kind, title, detail, time, tone]
+    GateEvent:
+      type: object
+      properties:
+        id: { type: number }
+        plate: { type: string }
+        eventType: { type: string }
+        gate: { type: string }
+        camera: { type: string }
+        decision: { type: string }
+        confidence: { type: number }
+        timestamp: { type: string }
+        vehicleType: { type: string }
+        transporter: { type: string }
+        isCorrected: { type: boolean }
+      required: [id, plate, eventType, gate, camera, decision, confidence, timestamp, vehicleType, transporter, isCorrected]
+    SimulationResult:
+      type: object
+      properties:
+        event:
+          $ref: "#/components/schemas/GateEvent"
+        trip:
+          $ref: "#/components/schemas/Trip"
+        alert:
+          anyOf:
+            - $ref: "#/components/schemas/Alert"
+            - type: "null"
+      required: [event, trip, alert]
+    DetectionInput:
+      type: object
+      properties:
+        frames:
+          type: array
+          items: { type: string }
+          minItems: 1
+          maxItems: 5
+        gate: { type: string }
+        vehicleType: { type: string, nullable: true }
+      required: [frames, gate]
+    DetectionFrame:
+      type: object
+      properties:
+        index: { type: number }
+        rawText: { type: string }
+        confidence: { type: number }
+      required: [index, rawText, confidence]
+    DetectionResult:
+      type: object
+      properties:
+        id: { type: number }
+        finalPlate: { type: string }
+        rawPlate: { type: string }
+        confidence: { type: number }
+        isCorrected: { type: boolean }
+        frames:
+          type: array
+          items:
+            $ref: "#/components/schemas/DetectionFrame"
+        decision: { type: string }
+        vehicleType: { type: string, nullable: true }
+      required: [id, finalPlate, rawPlate, confidence, isCorrected, frames, decision]
+    Trip:
+      type: object
+      properties:
+        id: { type: number }
+        plate: { type: string }
+        driver: { type: string }
+        transporter: { type: string }
+        gate: { type: string }
+        purpose: { type: string }
+        expectedArrival: { type: string }
+        expectedDeparture: { type: string }
+        status: { type: string }
+        entryTime:
+          type: ["string", "null"]
+        dwellMinutes:
+          type: ["number", "null"]
+      required: [id, plate, driver, transporter, gate, purpose, expectedArrival, expectedDeparture, status, entryTime, dwellMinutes]
+    ActiveTrip:
+      allOf:
+        - $ref: "#/components/schemas/Trip"
+        - type: object
+          properties:
+            vehicleType: { type: string }
+            lastEvent: { type: string }
+          required: [vehicleType, lastEvent]
+    TripInput:
+      type: object
+      properties:
+        plate: { type: string }
+        driver: { type: string }
+        transporter: { type: string }
+        gate: { type: string }
+        purpose: { type: string }
+        expectedArrival: { type: string }
+        expectedDeparture: { type: string }
+      required: [plate, driver, transporter, gate, purpose, expectedArrival, expectedDeparture]
+    TripStatusInput:
+      type: object
+      properties:
+        status: { type: string }
+      required: [status]
+    Vehicle:
+      type: object
+      properties:
+        id: { type: number }
+        plate: { type: string }
+        type: { type: string }
+        owner: { type: string }
+        transporter: { type: string }
+        authorized: { type: boolean }
+        status: { type: string }
+      required: [id, plate, type, owner, transporter, authorized, status]
+    VehicleInput:
+      type: object
+      properties:
+        plate: { type: string }
+        type: { type: string }
+        owner: { type: string }
+        transporter: { type: string }
+        authorized: { type: boolean }
+      required: [plate, type, owner, transporter, authorized]
+    Driver:
+      type: object
+      properties:
+        id: { type: number }
+        name: { type: string }
+        license: { type: string }
+        phone: { type: string }
+        vehicle: { type: string }
+        status: { type: string }
+      required: [id, name, license, phone, vehicle, status]
+    DriverInput:
+      type: object
+      properties:
+        name: { type: string }
+        license: { type: string }
+        phone: { type: string }
+        vehicle: { type: string }
+      required: [name, license, phone, vehicle]
+    Alert:
+      type: object
+      properties:
+        id: { type: number }
+        type: { type: string }
+        severity: { type: string }
+        message: { type: string }
+        plate: { type: string }
+        gate: { type: string }
+        time: { type: string }
+        isRead: { type: boolean }
+      required: [id, type, severity, message, plate, gate, time, isRead]
+    ReviewItem:
+      type: object
+      properties:
+        id: { type: number }
+        plate: { type: string }
+        rawText: { type: string }
+        confidence: { type: number }
+        gate: { type: string }
+        timestamp: { type: string }
+        reason: { type: string }
+        status: { type: string }
+      required: [id, plate, rawText, confidence, gate, timestamp, reason, status]
+    CorrectionInput:
+      type: object
+      properties:
+        correctedPlate: { type: string }
+      required: [correctedPlate]
+    ReportsOverview:
+      type: object
+      properties:
+        gateVolume:
+          type: array
+          items:
+            $ref: "#/components/schemas/ReportPoint"
+        transporterVolume:
+          type: array
+          items:
+            $ref: "#/components/schemas/ReportPoint"
+        dwellTrend:
+          type: array
+          items:
+            $ref: "#/components/schemas/ReportPoint"
+        decisions:
+          type: array
+          items:
+            $ref: "#/components/schemas/ReportPoint"
+        repeatVisitors: { type: number }
+        overstays: { type: number }
+        correctedReads: { type: number }
+        totalReads: { type: number }
+      required: [gateVolume, transporterVolume, dwellTrend, decisions, repeatVisitors, overstays, correctedReads, totalReads]
+    ReportPoint:
+      type: object
+      properties:
+        label: { type: string }
+        value: { type: number }
+        secondary: { type: ["number", "null"] }
+      required: [label, value, secondary]
+    Camera:
+      type: object
+      properties:
+        id: { type: number }
+        name: { type: string }
+        gate: { type: string }
+        direction: { type: string }
+        status: { type: string }
+        lastSeen: { type: string }
+      required: [id, name, gate, direction, status, lastSeen]
+    CameraInput:
+      type: object
+      properties:
+        name: { type: string }
+        gate: { type: string }
+        direction: { type: string }
+      required: [name, gate, direction]

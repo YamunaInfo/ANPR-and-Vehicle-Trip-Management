@@ -1,0 +1,295 @@
+# GateSense — Edge-AI ANPR & Vehicle Trip Management Platform
+### Full Build Brief for AI Coding Agents (Replit Agent / Cursor / Claude Code / Bolt / etc.)
+
+> **Note on scope:** This brief builds a fully working **software prototype** that simulates the edge-AI pipeline (Jetson/TensorRT/real camera hardware is out of scope for a hackathon demo). Plate recognition is done via **image upload + OCR (Tesseract/EasyOCR) or a mock/simulated detection engine**, not live GPU inference. Everything else — trip lifecycle, dedup logic, dashboards, alerts, reports — must be fully functional and real, not mocked.
+
+---
+
+## 1. APP OVERVIEW
+
+**App name:** GateSense — Smart Gate & Trip Intelligence
+
+**One-line description:** A real-time vehicle entry/exit management platform that reads number plates from camera images, matches vehicles to scheduled trips, and gives facilities a live dashboard of who's inside, for how long, and whether they're authorized.
+
+**Core problem it solves:** Industrial plants, warehouses, mines, and logistics yards have no unified digital record of vehicle movement — leading to security blind spots, no dwell-time visibility, undetected unauthorized entries, and zero trip-level accountability.
+
+**Target users:**
+- Plant security / gate operators (primary daily users)
+- Logistics & transporter coordinators (schedule trips, track fleet)
+- Facility/security managers (dashboards, reports, alerts)
+- Admins (manage vehicles, drivers, cameras, whitelist/watchlist)
+
+---
+
+## 2. FULL FEATURE LIST
+
+### Core (MUST HAVE — build these first, in this order of priority)
+1. **Plate recognition ingestion** — upload a vehicle image (or use a webcam snapshot) → OCR extracts plate number → confidence score returned.
+2. **Multi-frame fusion simulation** — accept 2–5 images/frames of the "same event," run OCR on each, and fuse into one final high-confidence plate string (majority vote + confidence weighting + character-confusion correction using regex plate patterns).
+3. **Vehicle Master** — CRUD for vehicles (plate number, type, owner, transporter, authorization status).
+4. **Driver Master** — CRUD for drivers (name, license no., phone, linked vehicle).
+5. **Trip Scheduling** — create expected trips (vehicle, driver, transporter, expected gate, expected arrival window, purpose).
+6. **Gate Decision Engine** — when a plate is recognized: search vehicle records → match to a scheduled trip (or flag as unscheduled) → check whitelist/watchlist → return decision: `allow` / `deny` / `manual_review`.
+7. **Entry/Exit Register** — every gate event (entry or exit) logged with timestamp, camera, gate, plate, decision.
+8. **Trip Lifecycle State Machine** — `Scheduled → Arrived → Entry Approved → Inside Plant → At Destination → Exit Detected → Completed` (plus `Cancelled`, `Exception`), with **every transition recorded in a history table**.
+9. **Dwell-time calculation** — auto-computed on exit (exit_time − entry_time).
+10. **Live Gate View dashboard** — real-time feed of latest detections/events (auto-refresh or WebSocket).
+11. **Trip Monitoring** — table of all vehicles currently inside the plant with elapsed dwell time (color-coded if overstaying).
+12. **Whitelist / Watchlist** — mark plates as always-authorized or flagged; auto-decision + alert generation.
+13. **Alerts panel** — unauthorized entry attempts, overstaying vehicles, plate mismatch flags.
+14. **Manual Review queue** — low-confidence reads or unmatched trips shown for human correction; corrections feed back into a `manual_corrections` table (dataset for future retraining — mention this for judge appeal).
+15. **Reports dashboard** — charts for: vehicles currently inside, avg dwell time, vehicles by gate, vehicles by transporter, unauthorized attempts, recognition accuracy (simulated by day/night tag), repeat visitors, overstaying vehicles.
+16. **Camera Management** — register cameras (id, gate, direction: entry/exit, status).
+
+### High-impact / judge-impressing (build after core works)
+17. **Live simulation mode** — a "Simulate Traffic" button that auto-generates realistic gate events every few seconds (random plates, random confidence, random gates) so judges see the system working live without needing real cameras.
+18. **Character-confusion-aware validation** — visibly show OCR raw output vs. corrected output (e.g., `WB12A81234` → corrected to `WB12AB1234`) with the confusion rule applied, displayed as a UI diff — great demo moment.
+19. **Confidence fusion visualization** — show the 3–5 frame reads side by side with a "fusing…" animation collapsing into the final result.
+20. **Role-based login** — Admin / Security Guard / Manager views with different permissions.
+21. **Audit log viewer** — searchable log of every state change, decision, and manual correction.
+22. **Exportable reports** (CSV/PDF) for dwell-time and gate activity.
+23. **Dark/light mode** toggle for the ops dashboard (control-room aesthetic).
+
+### Nice-to-have (only if time remains)
+24. Heatmap of gate traffic by hour of day.
+25. SMS/Email alert simulation (just log it, don't need real delivery).
+26. QR-code based manual gate override for edge cases.
+27. Multi-language plate pattern support (state-code aware, e.g., Indian plate formats).
+
+---
+
+## 3. TECH STACK
+
+Keep it **JavaScript-first, single-repo, fast to build, Replit-friendly**:
+
+- **Frontend:** React (Vite) + TypeScript + Tailwind CSS + shadcn/ui components + Recharts (for charts) + Lucide icons
+- **Backend:** Node.js + Express (TypeScript) — REST API
+- **Realtime:** WebSocket (Socket.IO) for Live Gate View + Trip Monitoring auto-updates
+- **Database:** PostgreSQL (use Replit's built-in Postgres or Neon) via **Drizzle ORM** (simple, type-safe, fast to scaffold) — alternative: Prisma if agent prefers
+- **OCR engine:** `tesseract.js` (pure JS, runs in Node, no GPU needed) for real plate-text extraction from uploaded images. If image upload OCR proves unreliable in the time available, fall back to a **deterministic mock OCR service** that takes an uploaded image, generates a randomized-but-plausible plate string with a random confidence score (so the full pipeline still demos end-to-end).
+- **Image handling:** `multer` for uploads, store images in `/uploads` or use base64 in DB for simplicity in prototype.
+- **Auth:** simple JWT-based auth (or session-based) with 3 roles (admin/guard/manager). Skip OAuth — not needed for hackathon.
+- **Charts:** Recharts
+- **State management (frontend):** React Query (TanStack Query) for API data + Zustand for UI state
+- **Deployment:** Replit's built-in run/deploy (single Node process serving API + built React app)
+
+---
+
+## 4. PAGES & USER FLOW
+
+| # | Page | Purpose | Navigation |
+|---|------|---------|-----------|
+| 1 | **Login** | Role-based login (Admin/Guard/Manager) | Entry point |
+| 2 | **Dashboard (Home)** | KPI cards (vehicles inside, today's entries/exits, alerts, avg dwell time) + mini charts | Sidebar link, default post-login page |
+| 3 | **Live Gate View** | Real-time feed of incoming detection events; "Simulate Traffic" button; shows raw OCR frames fusing into final plate read | Sidebar |
+| 4 | **Upload/Detect** | Manual test page: upload 1–5 images of a plate → see fusion pipeline run live → get final decision | Sidebar, also linked from Live Gate View |
+| 5 | **Trip Monitoring** | Table of vehicles currently inside with live dwell timer, gate, driver, status badge | Sidebar |
+| 6 | **Trip Scheduling** | Create/view/edit scheduled trips; calendar or table view | Sidebar |
+| 7 | **Entry/Exit Register** | Searchable/filterable historical log of all gate events | Sidebar |
+| 8 | **Vehicle Master** | CRUD table for vehicles | Sidebar → Admin section |
+| 9 | **Driver Master** | CRUD table for drivers | Sidebar → Admin section |
+| 10 | **Whitelist / Watchlist** | Manage authorized/flagged plates | Sidebar → Admin section |
+| 11 | **Manual Review** | Queue of low-confidence or unmatched events needing human correction | Sidebar, badge shows pending count |
+| 12 | **Alerts** | List of unauthorized attempts, overstays, mismatches with severity tags | Sidebar, badge shows unread count |
+| 13 | **Reports** | Charts + export buttons (dwell time, gate-wise, transporter-wise, accuracy) | Sidebar |
+| 14 | **Camera Management** | CRUD for camera/gate config | Sidebar → Admin section |
+| 15 | **Audit Log** | Searchable table of all state transitions and corrections | Sidebar → Admin section |
+
+**Primary user flow (demo path):**
+Login → Live Gate View → click "Simulate Traffic" (events start streaming) → click into one event to see multi-frame fusion + confusion correction → event auto-creates/matches a trip → Trip Monitoring shows vehicle "Inside Plant" with live dwell timer → simulate exit event → trip auto-closes, dwell time calculated → Reports page shows updated stats → trigger an unauthorized plate → Alerts page shows it in real time.
+
+---
+
+## 5. UI & DESIGN INSTRUCTIONS
+
+**Aesthetic:** Modern industrial control-room / SOC (security operations center) feel — dark-mode-first, high contrast, data-dense but clean.
+
+- **Color scheme:**
+  - Background: near-black slate (`#0B0F14` dark / `#F5F7FA` light)
+  - Primary accent: electric blue (`#3B82F6`) for actions/links
+  - Success/allow: emerald green (`#10B981`)
+  - Warning/manual review: amber (`#F59E0B`)
+  - Danger/deny/alert: red (`#EF4444`)
+  - Card surfaces: dark slate `#141A22` with subtle border `#1F2937`
+- **Fonts:** `Inter` for UI text, `JetBrains Mono` for plate numbers/IDs/timestamps (monospace gives it a "system" feel)
+- **Layout:** Fixed left sidebar navigation (icons + labels, collapsible) + top bar with role/user info and live clock + main content area with card-based grid layouts
+- **Components:** Use shadcn/ui (Card, Table, Badge, Tabs, Dialog, Toast) for consistency and speed
+- **Key visual moments to nail (judges remember these):**
+  - Live Gate View: event cards slide in with a subtle animation as they arrive
+  - Plate number displayed in large monospace font with a confidence progress bar/ring
+  - Status badges color-coded (green=allow, red=deny, amber=review) throughout
+  - Trip Monitoring: dwell timer ticking live (mm:ss), turns amber then red as it approaches/exceeds threshold
+  - Multi-frame fusion view: show 3-5 frame thumbnails with their individual OCR reads, then an animated "merge" into the final corrected plate
+- **Charts:** Recharts bar/line/pie with the same color palette, no default blue/red — theme them
+- **Responsive:** optimize for desktop/large tablet (this is an ops dashboard, not primarily mobile), but don't break on smaller screens
+
+---
+
+## 6. DATA & APIS
+
+### Core Data Models (Postgres via Drizzle)
+
+```
+users (id, name, email, password_hash, role[admin|guard|manager], created_at)
+
+vehicles (id, plate_number, vehicle_type[car|truck|bus|two_wheeler], owner_name,
+          transporter_id, is_authorized boolean, created_at)
+
+drivers (id, name, license_number, phone, vehicle_id, created_at)
+
+transporters (id, name, contact_email, contact_phone)
+
+cameras (id, name, gate_id, direction[entry|exit], status[online|offline], created_at)
+
+gates (id, name, location)
+
+scheduled_trips (id, vehicle_id, driver_id, transporter_id, gate_id,
+                  expected_arrival, expected_departure, purpose,
+                  status[scheduled|arrived|entry_approved|inside_plant|
+                          at_destination|exit_detected|completed|cancelled|exception],
+                  created_at)
+
+trip_status_history (id, trip_id, from_status, to_status, changed_at, changed_by, note)
+
+vehicle_detections (id, camera_id, raw_image_url, detected_at)
+
+plate_predictions (id, detection_id, final_plate, confidence, is_corrected boolean)
+
+plate_prediction_frames (id, prediction_id, frame_index, raw_ocr_text, confidence)
+
+entry_exit_events (id, trip_id, vehicle_id, camera_id, gate_id,
+                    event_type[entry|exit], plate_number, confidence,
+                    decision[allow|deny|manual_review], event_time)
+
+manual_corrections (id, prediction_id, original_text, corrected_text,
+                     corrected_by, corrected_at)
+
+whitelist_entries (id, plate_number, reason, added_by, created_at)
+watchlist_entries (id, plate_number, reason, severity, added_by, created_at)
+
+alerts (id, type[unauthorized_entry|overstay|mismatch], related_event_id,
+        severity[low|medium|high], message, is_read boolean, created_at)
+
+daily_gate_summary (id, gate_id, date, total_entries, total_exits,
+                     avg_dwell_minutes, unauthorized_count)
+
+audit_logs (id, user_id, action, entity, entity_id, details, created_at)
+```
+
+### Backend REST API (Express)
+
+```
+POST   /api/auth/login
+POST   /api/auth/logout
+GET    /api/me
+
+POST   /api/detections              -- submit image(s), triggers OCR + fusion pipeline
+GET    /api/detections/:id
+
+POST   /api/plates/correct          -- manual correction submission
+
+GET    /api/vehicles                POST /api/vehicles              PUT /api/vehicles/:id
+GET    /api/drivers                 POST /api/drivers               PUT /api/drivers/:id
+GET    /api/transporters            POST /api/transporters
+
+POST   /api/trips                   GET /api/trips                  GET /api/trips/active
+PUT    /api/trips/:id/status
+GET    /api/trips/:id/history
+
+POST   /api/gate/decision           -- run whitelist/watchlist/trip-match logic, returns decision
+
+GET    /api/events                  -- entry/exit register, filterable by date/gate/plate
+POST   /api/events/simulate         -- for "Simulate Traffic" demo mode
+
+GET    /api/whitelist               POST /api/whitelist
+GET    /api/watchlist               POST /api/watchlist
+
+GET    /api/alerts                  PUT /api/alerts/:id/read
+
+GET    /api/reports/dwell-time
+GET    /api/reports/gate-summary
+GET    /api/reports/accuracy
+
+GET    /api/cameras                 POST /api/cameras               PUT /api/cameras/:id
+GET    /api/audit-logs
+```
+
+**WebSocket events (Socket.IO):**
+- `event:new` — new gate detection/decision (pushes to Live Gate View + Trip Monitoring)
+- `alert:new` — new alert created
+- `trip:updated` — trip status changed
+
+### Mock/Seed Data (pre-populate on first run)
+
+- 3 users: `admin@gatesense.io` / `guard@gatesense.io` / `manager@gatesense.io` (password: `demo1234`)
+- 3 gates: Gate 1 (Main Entry), Gate 2 (Loading Bay), Gate 3 (Exit Only)
+- 4 cameras, one per gate direction
+- 15 vehicles (mix of cars/trucks/buses), realistic Indian-format plates (e.g., `TN37AB1234`, `KA05MZ5678`)
+- 10 drivers linked to vehicles
+- 5 transporters
+- 8 scheduled trips in various states
+- 3 whitelist entries, 2 watchlist entries
+- 20 historical entry/exit events spread over the last 3 days (for reports to show real charts on first load)
+- 5 sample alerts (mix of read/unread)
+
+### "Simulate Traffic" Logic (for `/api/events/simulate`)
+On trigger (or on an interval when demo mode is active): pick a random vehicle from seed data (90% of time) or a random unregistered plate (10% of time, to demonstrate "deny"/manual review) → generate 3 fake OCR frame reads around the true plate with small random character noise (simulating confusion errors) and random confidence 0.6–0.98 → run fusion algorithm → run gate decision logic → emit via WebSocket → insert into DB.
+
+---
+
+## 7. STEP-BY-STEP BUILD INSTRUCTIONS FOR THE AGENT
+
+Follow this exact sequence. Do not skip ahead. Verify each step works before moving to the next.
+
+**Step 1 — Project scaffold**
+Initialize a Node.js + TypeScript monorepo-style structure inside one Replit project: `/client` (React+Vite+Tailwind+shadcn), `/server` (Express+TypeScript), shared `/shared` folder for TypeScript types used by both. Set up a single `npm run dev` that runs both concurrently, and a single production build that serves the built React app from Express.
+
+**Step 2 — Database setup**
+Provision PostgreSQL. Set up Drizzle ORM with schema files matching the data models in Section 6. Write and run a migration. Write a `seed.ts` script that inserts all the mock data listed in Section 6, and run it.
+
+**Step 3 — Auth**
+Build JWT-based login (`/api/auth/login`) with the 3 seeded users and roles. Build a simple auth middleware. Build the Login page in React with role-aware redirect after login.
+
+**Step 4 — Core CRUD APIs and pages**
+Build REST endpoints and matching React pages (with React Query + shadcn Table/Dialog components) for: Vehicles, Drivers, Transporters, Cameras, Trips (create/list), Whitelist, Watchlist. Each page should have a table view + "add new" modal form + edit/delete actions.
+
+**Step 5 — Detection & fusion pipeline**
+Build `POST /api/detections` to accept 1–5 uploaded images. Run each through `tesseract.js` OCR (or the mock OCR fallback if OCR accuracy/setup time is a blocker). Implement the fusion algorithm: normalize each frame's raw text, apply the character-confusion correction map (0/O, 1/I, 2/Z, 5/S, 8/B) validated against a configurable plate regex pattern, take majority vote weighted by confidence, output final plate + final confidence + `is_corrected` flag. Store all frames and the final prediction. Build the Upload/Detect page to let a user try this manually and visually see the frame-by-frame reads and fusion result.
+
+**Step 6 — Gate decision engine**
+Build `POST /api/gate/decision`: given a plate number, check watchlist first (→ deny + alert), then whitelist (→ allow), then attempt to match an active `scheduled_trip` (same vehicle, gate, within a reasonable time window) — if matched, advance trip status; if no match, mark as unscheduled and return `manual_review`. Log everything into `entry_exit_events` and update `trip_status_history`.
+
+**Step 7 — Realtime layer**
+Add Socket.IO to the Express server. Emit `event:new` whenever a detection pipeline completes and a decision is made. Emit `trip:updated` on any trip status change. Emit `alert:new` when an alert is created. Wire the React frontend to subscribe to these and update Live Gate View, Trip Monitoring, and Alerts pages without needing a page refresh.
+
+**Step 8 — Simulate Traffic demo mode**
+Build `POST /api/events/simulate` implementing the logic in Section 6. Add a "Simulate Traffic" button on Live Gate View that calls this endpoint every 4–6 seconds while toggled on (use a `setInterval` on the frontend calling the API, or a backend interval — frontend-triggered is simpler and safer for a hackathon).
+
+**Step 9 — Trip Monitoring + dwell time**
+Build the Trip Monitoring page: table of all trips currently in `arrived/entry_approved/inside_plant/at_destination` states, with a live-ticking dwell timer (client-side `setInterval` computing `now - entry_time`). Color the timer badge amber past a configurable "expected duration" and red past an "overstay threshold." On exit event, compute final dwell time, close the trip, move it out of this table.
+
+**Step 10 — Manual Review + audit trail**
+Build the Manual Review page: list all `plate_predictions` with confidence below a threshold (e.g., 0.75) or unmatched trips. Let the guard/admin edit the plate text; on save, write to `manual_corrections`, re-run the gate decision with the corrected plate, and log to `audit_logs`.
+
+**Step 11 — Alerts**
+Auto-generate alerts for: watchlist hit, unauthorized/unscheduled entry, overstay (background check every X seconds/minutes for trips past threshold), and low-confidence mismatch. Build the Alerts page with severity badges, mark-as-read, and real-time push via WebSocket.
+
+**Step 12 — Reports & Dashboard**
+Build `/api/reports/*` endpoints doing SQL aggregation over `entry_exit_events` and `scheduled_trips`. Build the Reports page with Recharts: bar chart (entries by gate), bar chart (by transporter), line chart (dwell time trend over days), pie chart (allow/deny/manual review split), and simple accuracy metric cards (based on `is_corrected` ratio as a proxy for recognition accuracy, split by a `time_of_day` tag you can derive from `event_time`). Build the Dashboard (home) page with top-line KPI cards pulling from these same aggregates.
+
+**Step 13 — Polish pass**
+Apply the full design system from Section 5 consistently across every page: dark theme, color-coded badges, monospace plate fonts, sidebar navigation with active-state highlighting, loading skeletons on all data fetches, toast notifications on all create/update/delete actions, and empty states for tables with no data yet.
+
+**Step 14 — Final QA pass**
+Manually walk the full demo flow end-to-end (see "Primary user flow" in Section 4) and fix any breaks. Confirm seed data loads correctly on a fresh run. Confirm WebSocket reconnects gracefully. Confirm role-based route protection works (guard can't access Admin pages).
+
+**Step 15 — Prepare for demo**
+Add a `README.md` with setup instructions, demo login credentials, and a suggested "judge demo script" (the primary user flow, step by step) so the flow can be run smoothly live.
+
+---
+
+### Build priority if time runs short
+If short on hackathon time, cut in this order (keep everything above the cut line, drop below it):
+1. ✅ Always keep: Auth, Vehicle/Driver/Trip CRUD, Detection+Fusion, Gate Decision, Live Gate View, Trip Monitoring, Simulate Traffic
+2. ✂️ Cut first if needed: Camera Management CRUD (hardcode 3-4 cameras instead), Audit Log page, CSV/PDF export, role-based permissions (keep single login), dark/light toggle (ship dark-only)
+3. ✂️ Cut last resort: Manual Review page (still log low-confidence events, just skip the correction UI), Watchlist (fold into Whitelist as "authorized: true/false" only)
