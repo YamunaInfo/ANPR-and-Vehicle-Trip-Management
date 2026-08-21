@@ -881,9 +881,9 @@ class VideoAnprProcessor:
         # Multi-Frame ANPR Fusion Engine (per-track recognition buffer)
         fusion_engine = MultiFramePlateFusionEngine(
             window_size=10,
-            min_observations=3,
-            min_confidence=0.60,
-            min_agreement=0.60
+            min_observations=1,
+            min_confidence=0.50,
+            min_agreement=0.40
         )
 
         while cap.isOpened():
@@ -947,11 +947,11 @@ class VideoAnprProcessor:
 
             if valid_v_crops:
                 try:
-                    # Single batched call for all vehicle crops in this frame
+                    p_conf_thresh = min(plate_conf_threshold, 0.18)
                     p_res_list = self.plate_model(
                         valid_v_crops,
-                        imgsz=256,
-                        conf=plate_conf_threshold,
+                        imgsz=384,
+                        conf=p_conf_thresh,
                         device=self.device,
                         verbose=False
                     )
@@ -1123,8 +1123,8 @@ class VideoAnprProcessor:
                     # Select top candidate plate crop
                     for cand in cand_list[:1]:
                         cpx1, cpy1, cpx2, cpy2 = cand["bbox"]
-                        pad_x = max(3, int((cpx2 - cpx1) * 0.12))
-                        pad_y = max(3, int((cpy2 - cpy1) * 0.15))
+                        pad_x = min(2, max(0, int((cpx2 - cpx1) * 0.02)))
+                        pad_y = min(2, max(0, int((cpy2 - cpy1) * 0.02)))
                         pc_x1 = max(0, cpx1 - pad_x)
                         pc_y1 = max(0, cpy1 - pad_y)
                         pc_x2 = min(orig_w, cpx2 + pad_x)
@@ -1383,12 +1383,12 @@ class VideoAnprProcessor:
                 unique_plates_count += 1
 
             final_conf = f_info.get("final_confidence", tdata.get("final_confidence", tdata.get("ocr_confidence", 0.0)))
-            if has_valid_plate and float(final_conf) < 0.75:
-                status = "manual_review"
-                display_plate = f"{p_val} (Review Required)"
+            if has_valid_plate:
+                status = "finalized"
+                display_plate = p_val
             else:
-                status = f_info.get("status") or ("finalized" if has_valid_plate else "pending")
-                display_plate = f_info.get("display_plate") or (p_val if has_valid_plate else "Recognizing...")
+                status = f_info.get("status") or "pending"
+                display_plate = f_info.get("display_plate") or "Recognizing..."
 
             # Collect all frame predictions across canonical and merged tracks
             merged_ids = tdata.get("merged_track_ids", [tid])

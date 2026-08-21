@@ -602,8 +602,8 @@ class MultiFramePlateFusionEngine:
         # Step 3: Evidence Gating and State Transitions
         meets_criteria = (
             (winner["count"] >= self.min_observations and winner["final_confidence"] >= self.min_confidence and winner["agreement_ratio"] >= self.min_agreement) or
-            (winner["is_valid"] and winner["final_confidence"] >= 0.80 and winner["count"] >= 2) or
-            (winner["is_valid"] and winner["final_confidence"] >= 0.88)
+            (winner["is_valid"] and winner["final_confidence"] >= 0.65 and winner["count"] >= 1) or
+            (winner["is_valid"] and winner["final_confidence"] >= 0.70)
         )
 
         has_conflict = (len(ranked_candidates) >= 2 and winner["agreement_ratio"] < self.min_agreement and winner["count"] <= 1)
@@ -613,11 +613,7 @@ class MultiFramePlateFusionEngine:
             display_plate = winner["plate"]
             is_finalized = True
         elif force_finalize:
-            if winner.get("count", 0) >= 2 and winner.get("plate") and winner["final_confidence"] >= 0.50 and not has_conflict:
-                status = "finalized"
-                display_plate = winner["plate"]
-                is_finalized = True
-            elif winner.get("count", 0) == 1 and winner["is_valid"] and winner["final_confidence"] >= 0.75 and not has_conflict:
+            if winner.get("count", 0) >= 1 and winner.get("plate") and (winner["is_valid"] or winner["final_confidence"] >= 0.50) and not has_conflict:
                 status = "finalized"
                 display_plate = winner["plate"]
                 is_finalized = True

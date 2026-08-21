@@ -59,4 +59,7 @@ venv/
 
 # Static cache
 backend/static/processed_videos/*.mp4
-
+backend/temp_videos/
+backend/debug_*
+*.png
+*.jpg

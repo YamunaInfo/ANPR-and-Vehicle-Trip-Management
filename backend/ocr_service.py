@@ -560,7 +560,8 @@ async def process_video(
     # 1. Save uploaded video to temporary file
     temp_dir = os.path.join(os.path.dirname(__file__), "temp_videos")
     os.makedirs(temp_dir, exist_ok=True)
-    temp_path = os.path.join(temp_dir, f"upload_{int(time.time())}_{video.filename}")
+    safe_filename = os.path.basename(video.filename or "uploaded_video.mp4")
+    temp_path = os.path.join(temp_dir, f"upload_{int(time.time())}_{safe_filename}")
 
     async with INFERENCE_LOCK:
         try:
