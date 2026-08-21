@@ -222,12 +222,14 @@ const router: IRouter = Router();
 router.post("/auth/register", (req, res) => {
   const { name, email, password, role } = req.body || {};
   if (!email || !name) {
-    return res.status(400).json({ message: "Name and email are required." });
+    res.status(400).json({ message: "Name and email are required." });
+    return;
   }
   const cleanEmail = String(email).trim().toLowerCase();
   const existing = users.find((u) => u.email.toLowerCase() === cleanEmail);
   if (existing) {
-    return res.status(400).json({ message: "An account with this email already exists." });
+    res.status(400).json({ message: "An account with this email already exists." });
+    return;
   }
   const newUser: UserAccount = {
     id: users.length + 1,
@@ -251,15 +253,17 @@ router.post("/auth/register", (req, res) => {
 router.post("/auth/login", (req, res) => {
   const { email, password, role } = req.body || {};
   if (!email) {
-    return res.status(400).json({ message: "Email is required." });
+    res.status(400).json({ message: "Email is required." });
+    return;
   }
   const cleanEmail = String(email).trim().toLowerCase();
   const found = users.find((u) => u.email.toLowerCase() === cleanEmail);
   if (found) {
     if (password && found.password && found.password !== password && password !== "password123") {
-      return res.status(401).json({ message: "Invalid password. Default demo password is: password123" });
+      res.status(401).json({ message: "Invalid password. Default demo password is: password123" });
+      return;
     }
-    return res.json({
+    res.json({
       token: `session-${found.role}-${Date.now()}`,
       operator: {
         id: found.id,
@@ -268,6 +272,7 @@ router.post("/auth/login", (req, res) => {
         role: found.role,
       },
     });
+    return;
   }
 
   const assignedRole = role || (cleanEmail.includes("admin") ? "admin" : cleanEmail.includes("manager") ? "manager" : "guard");
@@ -294,10 +299,12 @@ router.post("/auth/login", (req, res) => {
 router.get("/me", (req, res) => {
   const authHeader = req.headers.authorization;
   if (authHeader && authHeader.includes("admin")) {
-    return res.json(users[2]);
+    res.json(users[2]);
+    return;
   }
   if (authHeader && authHeader.includes("manager")) {
-    return res.json(users[1]);
+    res.json(users[1]);
+    return;
   }
   res.json(users[0]);
 });
