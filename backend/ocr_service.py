@@ -24,7 +24,7 @@ import cv2
 import numpy as np
 from fastapi import FastAPI, HTTPException, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
@@ -779,6 +779,32 @@ def debug_save_variant(req: OcrRequest, variant_id: str = "unknown") -> Dict[str
 
     return log_entry
 
+
+# ─────────────────────────────────────────────────────────────
+# Production Frontend SPA Static Mount (Unified Single-Service)
+# ─────────────────────────────────────────────────────────────
+FRONTEND_DIST_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "frontend", "dist", "public"))
+if not os.path.exists(FRONTEND_DIST_DIR):
+    FRONTEND_DIST_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "dist", "public"))
+
+if os.path.exists(FRONTEND_DIST_DIR):
+    assets_dir = os.path.join(FRONTEND_DIST_DIR, "assets")
+    if os.path.exists(assets_dir):
+        app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
+
+    @app.get("/{full_path:path}")
+    async def serve_spa(full_path: str):
+        if full_path.startswith("api") or full_path.startswith("static"):
+            raise HTTPException(status_code=404, detail="Not Found")
+        file_candidate = os.path.join(FRONTEND_DIST_DIR, full_path)
+        if os.path.isfile(file_candidate):
+            return FileResponse(file_candidate)
+        index_file = os.path.join(FRONTEND_DIST_DIR, "index.html")
+        if os.path.exists(index_file):
+            return FileResponse(index_file)
+        raise HTTPException(status_code=404, detail="Frontend build index.html not found")
+
+
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=5001, log_level="info")
+    uvicorn.run(app, host="0.0.0.0", port=int(os.getenv("PORT", "5001")), log_level="info")
