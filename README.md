@@ -1,4 +1,4 @@
-# GateSense — Edge-AI ANPR & Vehicle Trip Management Platform
+Edge-AI ANPR & Vehicle Trip Management Platform
 
 GateSense is an industrial vehicle entry/exit intelligence platform that reads number plates from camera feeds & recorded videos, fuses multi-frame OCR reads into high-confidence plate numbers, matches vehicles to scheduled trips, and provides a real-time SOC control room dashboard.
 
